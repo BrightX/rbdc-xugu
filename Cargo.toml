@@ -1,0 +1,10 @@
+[package]
+name = "rbdc-xugu"
+version = "0.0.0"
+edition = "2021"
+repository = "https://github.com/BrightX/rbdc-xugu"
+keywords = ["database", "async", "xugu"]
+categories = ["database", "asynchronous"]
+authors = [
+    "BrightXu <BrightXu666@qq.com>",
+]
