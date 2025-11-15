@@ -1,0 +1,227 @@
+use crate::connection::stream::XuguStream;
+use crate::protocol::text::{OkPacket, Ping};
+use crate::query_result::XuguQueryResult;
+use crate::row::XuguRow;
+use crate::statement::XuguStatementMetadata;
+use either::Either;
+use futures_core::future::BoxFuture;
+use futures_core::stream::BoxStream;
+use futures_util::{FutureExt, StreamExt, TryStreamExt};
+use rbdc::common::StatementCache;
+use rbdc::db::{Connection, ExecResult, Row};
+use rbdc::Error;
+use rbs::Value;
+use std::borrow::Cow;
+use std::fmt::{Debug, Formatter};
+
+mod establish;
+mod executor;
+mod ssl;
+mod stream;
+
+pub struct XuguConnection {
+    pub(crate) inner: Box<XuguConnectionInner>,
+}
+
+pub(crate) struct XuguConnectionInner {
+    pub(crate) stream: XuguStream,
+
+    // transaction status
+    pub(crate) transaction_depth: usize,
+    // status_flags: Status,
+
+    // cache by query string to the statement id and metadata
+    cache_statement: StatementCache<(u32, XuguStatementMetadata)>,
+
+    st_id_gen: u32,
+    con_obj_name: String,
+}
+
+impl XuguConnectionInner {
+    pub(crate) fn gen_st_id(&mut self) -> u32 {
+        self.st_id_gen = self.st_id_gen.wrapping_add(1);
+        self.st_id_gen
+    }
+
+    pub(super) fn addr_code(&mut self) -> usize {
+        let addr = std::ptr::addr_of!(*self) as usize;
+        addr
+    }
+}
+
+impl XuguConnection {
+    /// 发送中断信号,停止接受服务器返回数据
+    pub(crate) async fn send_halt(&mut self) -> Result<(), Error> {
+        let buf = b".".as_slice();
+        self.inner.stream.send_packet(buf).await?;
+
+        Ok(())
+    }
+}
+
+impl Debug for XuguConnection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("XuguConnection").finish()
+    }
+}
+
+impl Connection for XuguConnection {
+    fn get_rows(
+        &mut self,
+        sql: &str,
+        params: Vec<Value>,
+    ) -> BoxFuture<'_, Result<Vec<Box<dyn Row>>, Error>> {
+        let sql = sql.to_owned();
+        Box::pin(async move {
+            let many = {
+                if params.is_empty() {
+                    self.fetch_many(&sql, params, false)
+                } else {
+                    let stmt = self.prepare_with(&sql, &[]).await?;
+                    self.fetch_many(&stmt.sql, params, true)
+                }
+            };
+
+            let f: BoxStream<Result<XuguRow, Error>> = many
+                .try_filter_map(|step| async move {
+                    Ok(match step {
+                        Either::Left(_) => None,
+                        Either::Right(row) => Some(row),
+                    })
+                })
+                .boxed();
+            let c: BoxFuture<'_, Result<Vec<XuguRow>, Error>> = f.try_collect().boxed();
+            let v = c.await?;
+            let mut data: Vec<Box<dyn Row>> = Vec::with_capacity(v.len());
+            for x in v {
+                data.push(Box::new(x));
+            }
+            Ok(data)
+        })
+    }
+
+    fn exec(&mut self, sql: &str, params: Vec<Value>) -> BoxFuture<'_, Result<ExecResult, Error>> {
+        let sql = sql.to_owned();
+        Box::pin(async move {
+            let many = {
+                if params.is_empty() {
+                    self.fetch_many(&sql, params, false)
+                } else {
+                    let stmt = self.prepare_with(&sql, &[]).await?;
+                    self.fetch_many(&stmt.sql, params, true)
+                }
+            };
+            let v: BoxStream<Result<XuguQueryResult, Error>> = many
+                .try_filter_map(|step| async move {
+                    Ok(match step {
+                        Either::Left(rows) => Some(rows),
+                        Either::Right(_) => None,
+                    })
+                })
+                .boxed();
+            let v: XuguQueryResult = v.try_collect().boxed().await?;
+            // todo last_insert_id 查询
+            return Ok(ExecResult {
+                rows_affected: v.rows_affected,
+                last_insert_id: v
+                    .last_insert_id
+                    .map(|s| Value::String(s))
+                    .unwrap_or(Value::Null),
+            });
+        })
+    }
+
+    fn ping(&mut self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move {
+            // self.inner.stream.wait_until_ready().await?;
+            self.inner.stream.send_packet(Ping).await?;
+            let _ok: OkPacket = self.inner.stream.recv().await?;
+
+            Ok(())
+        })
+    }
+
+    fn close(&mut self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move {
+            // self.inner.stream.send_packet(Quit).await?;
+            // TODO
+            self.send_halt().await?;
+            self.inner.stream.shutdown().await?;
+            Ok(())
+        })
+    }
+
+    /// 开始事务
+    fn begin(&mut self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async {
+            let depth = self.inner.transaction_depth;
+            let stmt = begin_ansi_transaction_sql(depth);
+            self.exec(&*stmt, vec![]).await?;
+
+            self.inner.transaction_depth += 1;
+
+            Ok(())
+        })
+    }
+
+    /// 提交事务
+    fn commit(&mut self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async {
+            let depth = self.inner.transaction_depth;
+            if depth > 0 {
+                // 虚谷 v11 不支持 事务保存点的释放 RELEASE SAVEPOINT _rbaits_savepoint_1
+                // 所以忽略  RELEASE SAVEPOINT 的执行，只执行最后的的 COMMIT
+                if depth == 1 {
+                    let stmt = commit_ansi_transaction_sql(depth);
+                    self.exec(&*stmt, vec![]).await?;
+                }
+
+                self.inner.transaction_depth = depth - 1;
+            }
+
+            Ok(())
+        })
+    }
+
+    /// 回滚事务
+    fn rollback(&mut self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async {
+            let depth = self.inner.transaction_depth;
+
+            if depth > 0 {
+                let stmt = rollback_ansi_transaction_sql(depth);
+                self.exec(&*stmt, vec![]).await?;
+                self.inner.transaction_depth = depth - 1;
+            }
+
+            Ok(())
+        })
+    }
+}
+
+pub fn begin_ansi_transaction_sql(depth: usize) -> Cow<'static, str> {
+    if depth == 0 {
+        Cow::Borrowed("BEGIN")
+    } else {
+        Cow::Owned(format!("SAVEPOINT _rbaits_savepoint_{depth}"))
+    }
+}
+
+pub fn commit_ansi_transaction_sql(depth: usize) -> Cow<'static, str> {
+    if depth == 1 {
+        Cow::Borrowed("COMMIT")
+    } else {
+        Cow::Owned(format!("RELEASE SAVEPOINT _rbaits_savepoint_{}", depth - 1))
+    }
+}
+
+pub fn rollback_ansi_transaction_sql(depth: usize) -> Cow<'static, str> {
+    if depth == 1 {
+        Cow::Borrowed("ROLLBACK")
+    } else {
+        Cow::Owned(format!(
+            "ROLLBACK TO SAVEPOINT _rbaits_savepoint_{}",
+            depth - 1
+        ))
+    }
+}
