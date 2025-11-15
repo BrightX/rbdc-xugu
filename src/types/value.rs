@@ -3,8 +3,9 @@ use crate::protocol::text::ColumnType;
 use crate::type_info::XuguTypeInfo;
 use crate::types::{Decode, Encode, IsNull, TypeInfo};
 use crate::value::XuguValue;
-use rbdc::{Decimal, Error, Uuid};
+use rbdc::{Date, DateTime, Decimal, Error, Time, Timestamp, Uuid};
 use rbs::Value;
+use std::str::FromStr;
 
 impl Decode for Value {
     fn decode(v: XuguValue) -> Result<Self, Error> {
@@ -35,6 +36,9 @@ impl Decode for Value {
             ColumnType::XML => Value::String(Decode::decode(v)?),
             ColumnType::JSON => Value::String(Decode::decode(v)?),
             ColumnType::GUID => <Uuid as Decode>::decode(v)?.into(),
+            ColumnType::DATE => <Date as Decode>::decode(v)?.into(),
+            ColumnType::TIME => <Time as Decode>::decode(v)?.into(),
+            ColumnType::DATETIME => <DateTime as Decode>::decode(v)?.into(),
             _ => {
                 // TODO 其他类型暂不支持
                 Value::String(Decode::decode(v)?)
@@ -61,6 +65,16 @@ impl Encode for Value {
             Value::Ext(ext_type, v) => match ext_type {
                 "Uuid" => v.into_string().unwrap_or_default().encode(buf),
                 "Decimal" => v.into_string().unwrap_or_default().encode(buf),
+                "Date" => Date::from_str(&v.into_string().unwrap_or_default())
+                    .map_err(|e| Error::from(e.to_string()))?
+                    .encode(buf),
+                "Time" => Time::from_str(&v.into_string().unwrap_or_default())
+                    .map_err(|e| Error::from(e.to_string()))?
+                    .encode(buf),
+                "DateTime" => DateTime::from_str(&v.into_string().unwrap_or_default())
+                    .map_err(|e| Error::from(e.to_string()))?
+                    .encode(buf),
+                "Timestamp" => Timestamp(v.as_i64().unwrap_or_default()).encode(buf),
                 _ => todo!(),
             },
         }

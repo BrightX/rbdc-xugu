@@ -4,6 +4,7 @@ mod decimal;
 mod float;
 mod int;
 mod str;
+mod time;
 mod uint;
 mod uuid;
 mod value;

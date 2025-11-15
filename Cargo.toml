@@ -33,5 +33,6 @@ turing-cipher = "0.1"
 percent-encoding = "2.1.0"
 url = "2.2.2"
 either = "1.7.0"
+fastdate = "0.3"
 
 serde = { version = "1.0.144" }
