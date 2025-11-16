@@ -14,6 +14,11 @@ mod type_info;
 mod types;
 mod value;
 
+pub use rbdc::db;
+pub use rbdc::pool;
+pub use rbdc::Error;
+pub use rbs;
+
 pub use error::XuguDatabaseError;
 
 pub use driver::XuguDriver;
