@@ -428,9 +428,10 @@ async fn recv_result_columns(
 fn recv_next_result_column(def: &ColumnDefinition) -> Result<XuguColumn, Error> {
     // if the alias is empty, use the alias
     // only then use the name
+    // NOTE: rbatis 使用 serde 反序列化，默认使用 小蛇形命名，但数据库返回字段名为全大写。这里转为全小写
     let name = match (def.name()?, def.alias()?) {
-        (_, alias) if !alias.is_empty() => UStr::new(alias),
-        (name, _) => UStr::new(name),
+        (_, alias) if !alias.is_empty() => UStr::new(&alias.to_lowercase()),
+        (name, _) => UStr::new(&name.to_lowercase()),
     };
 
     let type_info = XuguTypeInfo::from_column(def);
