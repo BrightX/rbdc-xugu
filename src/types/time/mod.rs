@@ -75,7 +75,9 @@ impl Decode for Time {
 
 impl Encode for fastdate::DateTime {
     fn encode(self, buf: &mut Vec<XuguArgumentValue>) -> Result<IsNull, Error> {
-        let micros: i64 = self.unix_timestamp_micros();
+        // xugu 不带时区的 DATETIME 是 utc 时间戳表示
+        let offset_sec = self.offset() as i64;
+        let micros: i64 = self.unix_timestamp_micros() + offset_sec * 1_000_000;
 
         micros.encode(buf)
     }
