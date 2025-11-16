@@ -83,8 +83,8 @@ impl Encode for fastdate::DateTime {
 
 impl Decode for fastdate::DateTime {
     fn decode(value: XuguValue) -> Result<Self, Error> {
-        let micros = <i64 as Decode>::decode(value)?;
-        let t = fastdate::DateTime::from_timestamp_micros(micros);
+        let millis = <i64 as Decode>::decode(value)?;
+        let t = fastdate::DateTime::from_timestamp_millis(millis);
 
         Ok(t)
     }
@@ -113,8 +113,7 @@ impl Encode for Timestamp {
 
 impl Decode for Timestamp {
     fn decode(value: XuguValue) -> Result<Self, Error> {
-        let micros = <i64 as Decode>::decode(value)?;
-        let millis = micros / 1000;
+        let millis = <i64 as Decode>::decode(value)?;
 
         // Timestamp(timestamp_millis:u64)
         Ok(Self(millis))
