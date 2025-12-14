@@ -31,6 +31,7 @@ impl Decode for Value {
             ColumnType::BLOB_M => Value::Binary(Decode::decode(v)?),
             ColumnType::BLOB_OM => Value::Binary(Decode::decode(v)?),
             ColumnType::ROWID => Value::String(Decode::decode(v)?),
+            ColumnType::ROWVERSION => Value::String(Decode::decode(v)?),
             ColumnType::BIT => Value::Binary(Decode::decode(v)?),
             ColumnType::VARBIT => Value::Binary(Decode::decode(v)?),
             ColumnType::XML => Value::String(Decode::decode(v)?),
@@ -39,6 +40,30 @@ impl Decode for Value {
             ColumnType::DATE => <Date as Decode>::decode(v)?.into(),
             ColumnType::TIME => <Time as Decode>::decode(v)?.into(),
             ColumnType::DATETIME => <DateTime as Decode>::decode(v)?.into(),
+
+            // 几何类型 按字符串编解码
+            ColumnType::POINT => Value::Ext("Point", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::LSEG => Value::Ext("Lseg", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::PATH => Value::Ext("Path", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::BOX => Value::Ext("Box", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::POLYGON => {
+                Value::Ext("Polygon", Box::new(Value::String(Decode::decode(v)?)))
+            }
+            ColumnType::LINE => Value::Ext("Line", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::CIRCLE => Value::Ext("Circle", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::GEOMETRY => {
+                Value::Ext("Geometry", Box::new(Value::String(Decode::decode(v)?)))
+            }
+            ColumnType::GEOGRAPHY => {
+                Value::Ext("Geography", Box::new(Value::String(Decode::decode(v)?)))
+            }
+            ColumnType::BOX2D => Value::Ext("Box2d", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::BOX3D => Value::Ext("Box3d", Box::new(Value::String(Decode::decode(v)?))),
+            ColumnType::SPHEROID => {
+                Value::Ext("Spheroid", Box::new(Value::String(Decode::decode(v)?)))
+            }
+            ColumnType::RASTER => Value::Ext("Raster", Box::new(Value::String(Decode::decode(v)?))),
+
             _ => {
                 // TODO 其他类型暂不支持
                 Value::String(Decode::decode(v)?)
@@ -75,6 +100,22 @@ impl Encode for Value {
                     .map_err(|e| Error::from(e.to_string()))?
                     .encode(buf),
                 "Timestamp" => Timestamp(v.as_i64().unwrap_or_default()).encode(buf),
+
+                // 几何类型 按字符串编解码
+                "Point" => v.into_string().unwrap_or_default().encode(buf),
+                "Lseg" => v.into_string().unwrap_or_default().encode(buf),
+                "Path" => v.into_string().unwrap_or_default().encode(buf),
+                "Box" => v.into_string().unwrap_or_default().encode(buf),
+                "Polygon" => v.into_string().unwrap_or_default().encode(buf),
+                "Line" => v.into_string().unwrap_or_default().encode(buf),
+                "Circle" => v.into_string().unwrap_or_default().encode(buf),
+                "Geometry" => v.into_string().unwrap_or_default().encode(buf),
+                "Geography" => v.into_string().unwrap_or_default().encode(buf),
+                "Box2d" => v.into_string().unwrap_or_default().encode(buf),
+                "Box3d" => v.into_string().unwrap_or_default().encode(buf),
+                "Spheroid" => v.into_string().unwrap_or_default().encode(buf),
+                "Raster" => v.into_string().unwrap_or_default().encode(buf),
+
                 _ => todo!(),
             },
         }
@@ -107,13 +148,20 @@ impl TypeInfo for Value {
                 "Char" => XuguTypeInfo::from_type(ColumnType::CHAR),
                 "Json" => XuguTypeInfo::from_type(ColumnType::JSON),
 
-                "Point" => XuguTypeInfo::from_type(ColumnType::POINT),
-                "Lseg" => XuguTypeInfo::from_type(ColumnType::LSEG),
-                "Path" => XuguTypeInfo::from_type(ColumnType::PATH),
-                "Box" => XuguTypeInfo::from_type(ColumnType::BOX),
-                "Polygon" => XuguTypeInfo::from_type(ColumnType::POLYGON),
-                "Line" => XuguTypeInfo::from_type(ColumnType::LINE),
-                "Circle" => XuguTypeInfo::from_type(ColumnType::CIRCLE),
+                // 几何类型 按字符串编解码
+                "Point" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Lseg" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Path" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Box" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Polygon" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Line" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Circle" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Geometry" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Geography" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Box2d" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Box3d" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Spheroid" => XuguTypeInfo::from_type(ColumnType::CHAR),
+                "Raster" => XuguTypeInfo::from_type(ColumnType::CHAR),
 
                 "Varchar" => XuguTypeInfo::from_type(ColumnType::CHAR),
                 "DATETIME_TZ" => XuguTypeInfo::from_type(ColumnType::DATETIME_TZ),

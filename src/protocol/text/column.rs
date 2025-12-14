@@ -30,6 +30,7 @@ bitflags! {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i32)]
