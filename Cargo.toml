@@ -7,7 +7,7 @@ description = "Xugu driver implementation for rbatis. The Rust SQL Toolkit and O
 keywords = ["database", "async", "xugu"]
 categories = ["database", "asynchronous"]
 authors = [
-    "BrightXu <BrightXu666@qq.com>",
+    "BrightXu <BrightXu666@163.com>",
 ]
 include = [
     "src/*",
@@ -28,6 +28,7 @@ bitflags = { version = "2", default-features = false, features = ["serde"] }
 byteorder = { version = "1.4.3", default-features = false, features = ["std"] }
 bytes = "1.1.0"
 getrandom = "0.3"
+log = "0.4"
 num-bigint = { version = "0.4", default-features = false }
 turing-cipher = "0.1"
 percent-encoding = "2.1.0"

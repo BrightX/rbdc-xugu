@@ -1,15 +1,20 @@
 use crate::connection::stream::XuguStream;
+use crate::io::AsyncStreamExt;
+use crate::protocol::message::*;
 use crate::protocol::text::{OkPacket, Ping};
+use crate::protocol::ServerContext;
 use crate::query_result::XuguQueryResult;
 use crate::row::XuguRow;
 use crate::statement::XuguStatementMetadata;
+use crate::XuguDatabaseError;
 use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
+use log::Level;
 use rbdc::common::StatementCache;
 use rbdc::db::{Connection, ExecResult, Row};
-use rbdc::Error;
+use rbdc::{err_protocol, Error};
 use rbs::Value;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
@@ -33,6 +38,10 @@ pub(crate) struct XuguConnectionInner {
     // cache by query string to the statement id and metadata
     cache_statement: StatementCache<(u32, XuguStatementMetadata)>,
 
+    // number of ReadyForQuery messages that we are currently expecting
+    pub(crate) pending_ready_for_query_count: usize,
+    pub(crate) last_num_columns: usize,
+
     st_id_gen: u32,
     con_obj_name: String,
 }
@@ -50,6 +59,91 @@ impl XuguConnectionInner {
 }
 
 impl XuguConnection {
+    // will return when the connection is ready for another query
+    pub(crate) async fn wait_until_ready(&mut self) -> Result<(), Error> {
+        if !self.inner.stream.wbuf.is_empty() {
+            self.inner.stream.flush().await?;
+        }
+
+        let mut num_columns = self.inner.last_num_columns;
+        while self.inner.pending_ready_for_query_count > 0 {
+            let message: ReceivedMessage = self.inner.stream.recv().await?;
+            let cnt = ServerContext::new(self.inner.stream.server_version);
+            match message.format {
+                BackendMessageFormat::ErrorResponse => {
+                    let err: ErrorResponse = message.decode(&mut self.inner.stream, cnt).await?;
+                    return Err(XuguDatabaseError::from_str(&err.error).into());
+                }
+                BackendMessageFormat::MessageResponse => {
+                    let notice: MessageResponse =
+                        message.decode(&mut self.inner.stream, cnt).await?;
+                    let log_level = Level::Info;
+                    let log_is_enabled = log::log_enabled!(
+                        target: "xugu::notice",
+                        log_level
+                    );
+                    if log_is_enabled {
+                        log::logger().log(
+                            &log::Record::builder()
+                                .args(format_args!("{}", &notice.msg))
+                                .level(log_level)
+                                .module_path_static(Some("xugu::notice"))
+                                .target("xugu::notice")
+                                .file_static(Some(file!()))
+                                .line(Some(line!()))
+                                .build(),
+                        );
+                    }
+                }
+                BackendMessageFormat::RowDescription => {
+                    // 接收列数据
+                    let columns: RowDescription =
+                        message.decode(&mut self.inner.stream, cnt).await?;
+                    num_columns = columns.fields.len();
+                    self.inner.last_num_columns = num_columns;
+                }
+                BackendMessageFormat::DataRow => {
+                    // 接收行数据
+                    let _: DataRow = message.decode(&mut self.inner.stream, cnt).await?;
+                    for _ in 0..num_columns {
+                        let len = self.inner.stream.read_i32().await?;
+                        let _buf = self.inner.stream.read_bytes(len as usize).await?;
+                    }
+                }
+                BackendMessageFormat::ReadyForQuery => {
+                    let _: ReadyForQuery = message.decode(&mut self.inner.stream, cnt).await?;
+                    self.handle_ready_for_query().await?;
+                }
+                BackendMessageFormat::InsertResponse => {
+                    let _: InsertResponse = message.decode(&mut self.inner.stream, cnt).await?;
+                }
+                BackendMessageFormat::DeleteResponse => {
+                    let _: DeleteResponse = message.decode(&mut self.inner.stream, cnt).await?;
+                }
+                BackendMessageFormat::UpdateResponse => {
+                    let _: UpdateResponse = message.decode(&mut self.inner.stream, cnt).await?;
+                }
+                BackendMessageFormat::ParameterDescription => {
+                    let _: ParameterDescription =
+                        message.decode(&mut self.inner.stream, cnt).await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    #[inline(always)]
+    async fn handle_ready_for_query(&mut self) -> Result<(), Error> {
+        self.inner.pending_ready_for_query_count = self
+            .inner
+            .pending_ready_for_query_count
+            .checked_sub(1)
+            .ok_or_else(|| err_protocol!("received more ReadyForQuery messages than expected"))?;
+
+        Ok(())
+    }
+
     /// 发送中断信号,停止接受服务器返回数据
     pub(crate) async fn send_halt(&mut self) -> Result<(), Error> {
         let buf = b".".as_slice();
@@ -133,7 +227,7 @@ impl Connection for XuguConnection {
 
     fn ping(&mut self) -> BoxFuture<'_, Result<(), Error>> {
         Box::pin(async move {
-            // self.inner.stream.wait_until_ready().await?;
+            self.wait_until_ready().await?;
             self.inner.stream.send_packet(Ping).await?;
             let _ok: OkPacket = self.inner.stream.recv().await?;
 

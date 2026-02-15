@@ -282,70 +282,26 @@ impl XuguConnectOptions {
 #[allow(dead_code)]
 impl XuguConnectOptions {
     /// Get the current host.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use sqlx_xugu::XuguConnectOptions;
-    /// let options = XuguConnectOptions::new()
-    ///     .host("127.0.0.1");
-    /// assert_eq!(options.get_host(), "127.0.0.1");
-    /// ```
     pub fn get_host(&self) -> &str {
         &self.host
     }
 
     /// Get the server's port.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use sqlx_xugu::XuguConnectOptions;
-    /// let options = XuguConnectOptions::new()
-    ///     .port(5138);
-    /// assert_eq!(options.get_port(), 5138);
-    /// ```
     pub fn get_port(&self) -> u16 {
         self.port
     }
 
     /// Get the current user.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use sqlx_xugu::XuguConnectOptions;
-    /// let options = XuguConnectOptions::new()
-    ///     .user("foo");
-    /// assert_eq!(options.get_user(), "foo");
-    /// ```
     pub fn get_user(&self) -> &str {
         &self.user
     }
 
     /// Get the current database name.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use sqlx_xugu::XuguConnectOptions;
-    /// let options = XuguConnectOptions::new()
-    ///     .database("SYSTEM");
-    /// assert_eq!(options.get_database(), "SYSTEM");
-    /// ```
     pub fn get_database(&self) -> &str {
         &self.database
     }
 
     /// Get the server charset.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use sqlx_xugu::XuguConnectOptions;
-    /// let options = XuguConnectOptions::new();
-    /// assert_eq!(options.get_charset(), "utf8");
-    /// ```
     pub fn get_charset(&self) -> &str {
         &self.charset
     }

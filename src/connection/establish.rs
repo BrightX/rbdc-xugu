@@ -12,6 +12,8 @@ impl XuguConnection {
             stream,
             transaction_depth: 0,
             cache_statement: StatementCache::new(1024),
+            pending_ready_for_query_count: 0,
+            last_num_columns: 0,
             st_id_gen: 0,
             con_obj_name: String::new(),
         };
