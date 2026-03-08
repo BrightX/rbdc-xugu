@@ -15,11 +15,19 @@
 
 ```toml
 # Cargo.toml
-rbdc-pool-fast = "~4.6"
-rbdc-xugu = "~4.6"
+rbdc-pool-fast = "4.6"
+rbdc-xugu = "4.6"
 
 tokio = { version = "1", features = ["full"] }
 ```
+
+#### Cargo Feature Flags
+
+- `lowercase_column_name`: 将 `MetaData` 返回的列名转为小写，默认启用。
+  虚谷数据库查询结果集返回的列名和别名通常为大写，但大多数情况下 `rbatis` 的 `crud!` 注解的 struct 的字段
+  编程习惯上都为小写下划线命名的。
+  `serde` 进行反序列化时，需要通过 `#[serde(alias = "ID")]` 注解字段别名，来对应数据库返回的大写列名 `ID`。
+  启用这个 feature 后，可免去这种大量的 `serde` 别名注解。
 
 ## Usage
 

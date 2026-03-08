@@ -13,7 +13,11 @@ impl rbdc::db::MetaData for XuguMetaData {
     }
 
     fn column_name(&self, i: usize) -> String {
-        self.columns[i].name.to_string()
+        if cfg!(feature = "lowercase_column_name") {
+            self.columns[i].name.to_ascii_lowercase()
+        } else {
+            self.columns[i].name.to_string()
+        }
     }
 
     fn column_type(&self, i: usize) -> String {
