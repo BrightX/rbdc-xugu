@@ -9,6 +9,7 @@ categories = ["database", "asynchronous"]
 authors = [
     "BrightXu <BrightXu666@163.com>",
 ]
+license = "MIT OR Apache-2.0"
 include = [
     "src/*",
     "LICENSE*",
