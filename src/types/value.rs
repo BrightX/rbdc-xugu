@@ -40,7 +40,19 @@ impl Decode for Value {
             ColumnType::DATE => <Date as Decode>::decode(v)?.into(),
             ColumnType::TIME => <Time as Decode>::decode(v)?.into(),
             ColumnType::DATETIME => <DateTime as Decode>::decode(v)?.into(),
-
+            ColumnType::INTERVAL_Y
+            | ColumnType::INTERVAL_Y2M
+            | ColumnType::INTERVAL_M
+            | ColumnType::INTERVAL_D
+            | ColumnType::INTERVAL_D2H
+            | ColumnType::INTERVAL_H
+            | ColumnType::INTERVAL_D2M
+            | ColumnType::INTERVAL_H2M
+            | ColumnType::INTERVAL_MI
+            | ColumnType::INTERVAL_D2S
+            | ColumnType::INTERVAL_H2S
+            | ColumnType::INTERVAL_M2S
+            | ColumnType::INTERVAL_S => super::time::interval::decode(v)?,
             // 几何类型 按字符串编解码
             ColumnType::POINT => Value::Ext("Point", Box::new(Value::String(Decode::decode(v)?))),
             ColumnType::LSEG => Value::Ext("Lseg", Box::new(Value::String(Decode::decode(v)?))),
@@ -66,7 +78,7 @@ impl Decode for Value {
 
             _ => {
                 // TODO 其他类型暂不支持
-                Value::String(Decode::decode(v)?)
+                Value::Binary(Decode::decode(v)?)
             }
         })
     }
@@ -100,6 +112,7 @@ impl Encode for Value {
                     .map_err(|e| Error::from(e.to_string()))?
                     .encode(buf),
                 "Timestamp" => Timestamp(v.as_i64().unwrap_or_default()).encode(buf),
+                "Interval" => v.as_f64().unwrap_or_default().encode(buf),
 
                 // 几何类型 按字符串编解码
                 "Point" => v.into_string().unwrap_or_default().encode(buf),
@@ -147,6 +160,7 @@ impl TypeInfo for Value {
                 "Bool" => XuguTypeInfo::from_type(ColumnType::BOOLEAN),
                 "Char" => XuguTypeInfo::from_type(ColumnType::CHAR),
                 "Json" => XuguTypeInfo::from_type(ColumnType::JSON),
+                "Interval" => XuguTypeInfo::from_type(ColumnType::DOUBLE),
 
                 // 几何类型 按字符串编解码
                 "Point" => XuguTypeInfo::from_type(ColumnType::CHAR),

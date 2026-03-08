@@ -1,3 +1,5 @@
+pub(super) mod interval;
+
 use crate::arguments::XuguArgumentValue;
 use crate::types::{Decode, Encode, IsNull};
 use crate::value::XuguValue;
