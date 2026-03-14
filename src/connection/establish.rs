@@ -1,5 +1,5 @@
 use super::stream::XuguStream;
-use super::{XuguConnection, XuguConnectionInner};
+use super::{StatementId, XuguConnection, XuguConnectionInner};
 use crate::options::XuguConnectOptions;
 use rbdc::common::StatementCache;
 use rbdc::Error;
@@ -8,18 +8,14 @@ impl XuguConnection {
     pub(crate) async fn establish(options: &XuguConnectOptions) -> Result<Self, Error> {
         let stream = do_handshake(options).await?;
 
-        let mut inner = XuguConnectionInner {
+        let inner = XuguConnectionInner {
             stream,
             transaction_depth: 0,
+            next_statement_id: StatementId::NAMED_START,
             cache_statement: StatementCache::new(1024),
             pending_ready_for_query_count: 0,
             last_num_columns: 0,
-            st_id_gen: 0,
-            con_obj_name: String::new(),
         };
-
-        let inner_hex = format!("{:02x}", inner.addr_code());
-        inner.con_obj_name.push_str(&inner_hex);
 
         Ok(Self {
             inner: Box::new(inner),
