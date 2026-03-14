@@ -24,6 +24,8 @@ pub struct XuguConnectOptions {
     pub(crate) use_ssl: bool,
     current_schema: Option<String>,
     compatible_mode: Option<String>,
+
+    pub(crate) statement_cache_capacity: usize,
 }
 
 impl Default for XuguConnectOptions {
@@ -137,6 +139,8 @@ impl XuguConnectOptions {
             use_ssl: false,
             current_schema: None,
             compatible_mode: None,
+
+            statement_cache_capacity: 100,
         }
     }
 
@@ -275,6 +279,21 @@ impl XuguConnectOptions {
     /// timestamps can be placed on a real timeline without applying the proper offset.
     pub fn timezone(mut self, value: impl Into<Option<String>>) -> Self {
         self.time_zone = value.into();
+        self
+    }
+
+    /// 单个连接会话上的最大预处理语句数量
+    ///
+    /// 取值范围 `[100, 2097152]`
+    ///
+    /// Sets the capacity of the connection's statement cache in a number of stored
+    /// distinct statements. Caching is handled using LRU, meaning when the
+    /// amount of queries hits the defined limit, the oldest statement will get
+    /// dropped.
+    ///
+    /// The default cache capacity is 100 statements.
+    pub fn statement_cache_capacity(mut self, capacity: usize) -> Self {
+        self.statement_cache_capacity = capacity.clamp(100, 2097152);
         self
     }
 }
