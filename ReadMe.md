@@ -15,8 +15,8 @@
 
 ```toml
 # Cargo.toml
-rbdc-pool-fast = "4.6"
-rbdc-xugu = "4.6"
+rbdc-pool-fast = "4.7"
+rbdc-xugu = "4.7"
 
 tokio = { version = "1", features = ["full"] }
 ```
