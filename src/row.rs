@@ -23,6 +23,10 @@ impl XuguRow {
         let column = &self.columns[index];
         let value = self.row.get(index).map(|x| x.clone());
 
+        if is_null(value.as_deref()) {
+            return None;
+        }
+
         Some(XuguValue {
             type_info: column.type_info.clone(),
             value,
@@ -43,4 +47,14 @@ impl rbdc::db::Row for XuguRow {
             Some(v) => Value::decode(v),
         }
     }
+}
+
+fn is_null(value: Option<&[u8]>) -> bool {
+    if let Some(value) = value {
+        if value.is_empty() {
+            return true;
+        }
+    }
+
+    value.is_none()
 }
