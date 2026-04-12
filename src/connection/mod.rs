@@ -158,7 +158,7 @@ impl Debug for XuguConnection {
 }
 
 impl Connection for XuguConnection {
-    fn get_rows(
+    fn exec_rows(
         &mut self,
         sql: &str,
         params: Vec<Value>,

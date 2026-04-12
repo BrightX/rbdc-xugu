@@ -15,8 +15,8 @@
 
 ```toml
 # Cargo.toml
-rbdc-pool-fast = "4.7"
-rbdc-xugu = "4.7"
+rbdc-pool-fast = "4.8"
+rbdc-xugu = "4.8"
 
 tokio = { version = "1", features = ["full"] }
 ```
@@ -36,18 +36,17 @@ tokio = { version = "1", features = ["full"] }
 ```rust
 use rbdc_pool_fast::FastPool;
 use rbdc_xugu::db::Connection;
-use rbdc_xugu::pool::ConnectionManager as ConnManager;
 use rbdc_xugu::pool::Pool;
 use rbdc_xugu::XuguDriver;
 
 #[tokio::main]
-async fn main() -> Result<(), rbdc::Error> {
-    let pool = FastPool::new(ConnManager::new(
+async fn main() -> Result<(), rbdc_xugu::Error> {
+    let pool = FastPool::new_url(
         XuguDriver,
         "xugu://GUEST:GUEST@127.0.0.1:5138/SYSTEM?ssl=ssl",
-    )?)?;
+    )?;
     let mut conn = pool.get().await?;
-    let v = conn.get_values("SELECT * FROM your_tables", vec![]).await?;
+    let v = conn.exec_decode("SELECT * FROM your_tables", vec![]).await?;
     println!("{:?}", v);
     //if need decode use `let result:Vec<Table> = rbs::from_value(v)?;`
     Ok(())
