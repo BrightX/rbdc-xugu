@@ -21,5 +21,7 @@ pub use rbs;
 
 pub use error::XuguDatabaseError;
 
+pub use options::XuguConnectOptions;
+
 pub use driver::XuguDriver;
 pub use driver::XuguDriver as Driver;
