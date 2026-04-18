@@ -1,6 +1,6 @@
 [package]
 name = "rbdc-xugu"
-version = "4.7.1"
+version = "4.7.2"
 edition = "2021"
 repository = "https://github.com/BrightX/rbdc-xugu"
 description = "Xugu driver implementation for rbatis. The Rust SQL Toolkit and ORM Library. An async, pure Rust SQL crate featuring compile-time Dynamic SQL"
