@@ -15,7 +15,11 @@ impl TypeInfo for Vec<u8> {
 
 impl Encode for Vec<u8> {
     fn encode(self, args: &mut Vec<XuguArgumentValue<'_>>) -> Result<IsNull, Error> {
-        args.push(XuguArgumentValue::Bin(Cow::Owned(self)));
+        if self.is_empty() {
+            args.push(XuguArgumentValue::Bin(Cow::Borrowed(b"\0")));
+        } else {
+            args.push(XuguArgumentValue::Bin(Cow::Owned(self)));
+        }
 
         Ok(IsNull::No)
     }
@@ -23,7 +27,7 @@ impl Encode for Vec<u8> {
 
 impl Decode for Vec<u8> {
     fn decode(value: XuguValue) -> Result<Self, Error> {
-        value.as_bytes().map(ToOwned::to_owned)
+        value.as_bytes().map(map_empty).map(ToOwned::to_owned)
     }
 }
 
@@ -35,7 +39,11 @@ impl TypeInfo for Bytes {
 
 impl Encode for Bytes {
     fn encode(self, args: &mut Vec<XuguArgumentValue<'_>>) -> Result<IsNull, Error> {
-        args.push(XuguArgumentValue::Bytes(self));
+        if self.is_empty() {
+            args.push(XuguArgumentValue::Bin(Cow::Borrowed(b"\0")));
+        } else {
+            args.push(XuguArgumentValue::Bytes(self));
+        }
 
         Ok(IsNull::No)
     }
@@ -44,8 +52,21 @@ impl Encode for Bytes {
 impl Decode for Bytes {
     fn decode(v: XuguValue) -> Result<Self, Error> {
         match v.value {
-            Some(v) => Ok(v),
+            Some(v) => {
+                if b"\0".as_slice() == v {
+                    return Ok(Bytes::new());
+                }
+                Ok(v)
+            }
             None => Ok(Bytes::new()),
         }
     }
+}
+
+// 处理空字节
+fn map_empty(s: &[u8]) -> &[u8] {
+    if s == b"\0" {
+        return b"";
+    }
+    s
 }
