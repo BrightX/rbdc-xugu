@@ -70,7 +70,7 @@ impl Encode for i64 {
 fn int_decode(value: XuguValue) -> Result<i64, Error> {
     if value.type_info.r#type == ColumnType::CHAR {
         let s = value.as_str()?;
-        return Ok(i64::from_str_radix(s, 10)?);
+        return Ok(s.parse::<i64>()?);
     }
 
     let buf = value.as_bytes()?;

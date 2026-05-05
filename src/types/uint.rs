@@ -70,7 +70,7 @@ impl Encode for u64 {
 fn uint_decode(value: XuguValue) -> Result<u64, Error> {
     if value.type_info.r#type == ColumnType::CHAR {
         let s = value.as_str()?;
-        return Ok(u64::from_str_radix(s, 10)?);
+        return Ok(s.parse::<u64>()?);
     }
 
     let buf = value.as_bytes()?;

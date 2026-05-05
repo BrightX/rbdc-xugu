@@ -213,13 +213,10 @@ impl Connection for XuguConnection {
                 .boxed();
             let v: XuguQueryResult = v.try_collect().boxed().await?;
             // todo last_insert_id 查询
-            return Ok(ExecResult {
+            Ok(ExecResult {
                 rows_affected: v.rows_affected,
-                last_insert_id: v
-                    .last_insert_id
-                    .map(|s| Value::String(s))
-                    .unwrap_or(Value::Null),
-            });
+                last_insert_id: v.last_insert_id.map(Value::String).unwrap_or(Value::Null),
+            })
         })
     }
 
@@ -248,7 +245,7 @@ impl Connection for XuguConnection {
         Box::pin(async {
             let depth = self.inner.transaction_depth;
             let stmt = begin_ansi_transaction_sql(depth);
-            self.exec(&*stmt, vec![]).await?;
+            self.exec(&stmt, vec![]).await?;
 
             self.inner.transaction_depth += 1;
 
@@ -265,7 +262,7 @@ impl Connection for XuguConnection {
                 // 所以忽略  RELEASE SAVEPOINT 的执行，只执行最后的的 COMMIT
                 if depth == 1 {
                     let stmt = commit_ansi_transaction_sql(depth);
-                    self.exec(&*stmt, vec![]).await?;
+                    self.exec(&stmt, vec![]).await?;
                 }
 
                 self.inner.transaction_depth = depth - 1;
@@ -282,7 +279,7 @@ impl Connection for XuguConnection {
 
             if depth > 0 {
                 let stmt = rollback_ansi_transaction_sql(depth);
-                self.exec(&*stmt, vec![]).await?;
+                self.exec(&stmt, vec![]).await?;
                 self.inner.transaction_depth = depth - 1;
             }
 

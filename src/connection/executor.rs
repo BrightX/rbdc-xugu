@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::{borrow::Cow, pin::pin, sync::Arc};
 
 impl XuguConnection {
-    async fn prepare_statement<'c>(
+    async fn prepare_statement(
         &mut self,
         sql: &str,
     ) -> Result<(StatementId, XuguStatementMetadata), Error> {
@@ -108,7 +108,7 @@ impl XuguConnection {
         Ok((id, metadata))
     }
 
-    async fn get_or_prepare_statement<'c>(
+    async fn get_or_prepare_statement(
         &mut self,
         sql: &str,
     ) -> Result<(StatementId, XuguStatementMetadata), Error> {

@@ -21,7 +21,7 @@ pub struct XuguRow {
 impl XuguRow {
     fn try_take(&mut self, index: usize) -> Option<XuguValue> {
         let column = &self.columns[index];
-        let value = self.row.get(index).map(|x| x.clone());
+        let value = self.row.get(index).cloned();
 
         if is_null(value.as_deref()) {
             return None;
